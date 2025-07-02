@@ -1,0 +1,332 @@
+{
+    "layer": "top",
+    "position": "top",
+    "mod": "dock",
+    "exclusive": true,
+    "passtrough": false,
+    "gtk-layer-shell": true,
+    "height": 0,
+
+    "modules-left": [
+        "custom/powermenu",
+        // "hyperland/language",
+        // "custom/lock",
+        // "custom/clock",
+        "clock",
+
+        "battery",
+        // "custom/weather",
+        // "wlr/workspaces"
+        "hyprland/workspaces"
+    ],
+
+    "modules-center": ["hyprland/window"],
+
+    "modules-right": [
+        "tray",
+        "group/hardware",
+        "network",
+        // "idle_inhibitor",
+        "custom/updates",
+        "keyboard-state",
+        // "custom/language",
+        "backlight",
+        // "custom/light",
+        "pulseaudio",
+        "pulseaudio#microphone"
+    ],
+
+    "hyprland/window": {
+        "format": "{}"
+    },
+
+    "hyprland/workspaces": {
+        "on-scroll-up": "hyprctl dispatch workspace e+1",
+        "on-scroll-down": "hyprctl dispatch workspace e-1",
+        "all-outputs": true,
+        "on-click": "activate",
+        "format": "{icon}",
+        "format-icons": {
+            "1": "①",
+            "2": "②",
+            "3": "③",
+            "4": "④",
+            "5": "⑤",
+            "6": "⑥",
+            "7": "⑦",
+            "8": "⑧",
+            "urgent": "",
+            "active": "",
+            "default": ""
+          }
+    },
+
+    "group/hardware": {
+        // "orientation": "vertical",
+        "orientation": "horizontal",
+        "modules": [
+            "cpu",
+            "temperature",
+            "memory",
+            "disk"
+        ]
+    },
+
+    "cpu": {
+        "tooltip" : false,
+        "interval": 10,
+        "format": " {}%",
+        "max-length": 10,
+        "on-click": ""
+    },
+
+    "memory": {
+        "tooltip" : false,
+        "interval": 30,
+        "format": " {}%",
+        // "format-alt": " {used:0.1f}/{total:0.1}G {percentage_used}%",
+        "format-alt":" {used:0.1f}G",
+        "max-length": 10
+    },
+
+    // https://www.mankier.com/5/waybar-disk
+    "disk": {
+        "interval": 30,
+        // "format": "{percentage_free}%",
+        "format": " {percentage_used}%",
+        "format-alt": " {used}/{total} {percentage_used}%"
+        // "tooltip": false,
+        // "tooltip-format": " {used}/{total} {percentage_used}%"
+        
+    },
+
+    "custom/updates": {
+        "exec": "(yay -Qua ;pacman -Qu) | wc -l",
+        "interval": 7200,
+        "format": " {}"
+    },
+
+    "hyperland/language": {
+        "format-en": "US",
+        "format-ara": "عربي",
+        "format": "{}",
+        "keyboard-name": "sino-wealth-gaming-kb-"
+
+    },
+    // "custom/language": {
+    //     "exec": "cat /tmp/kb_layout",
+    //     // "exec": "setxkbmap -query | grep layout | sed s/.*://g | tr -d ' '",
+    //     "interval": 3,
+    //     "format": " {}"
+    // },
+
+    // "custom/weather" : {
+    //     "tooltip" : true,
+    //     "format" : "{}",
+    //     "restart-interval" : 300,
+    //     "exec" : "~/.config/waybar/scripts/waybar-wttr.py",
+    //     "return-type" : "json"
+    // },
+
+    "tray": {
+        "icon-size": 13,
+        "tooltip": false,
+        "spacing": 10
+    },
+
+    // "clock": {
+    //     "tooltip": false,
+        // "format": "{: %R   %d/%m}",
+        // "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+        // "max-length": 10,
+        // "on-click": "",
+        // "interval": 10
+        // "interval": 60
+    // },
+
+    "battery": {
+        "states": {
+            "good": 95,
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{icon} {capacity}%",
+        "format-charging": " {capacity}%",
+        "format-plugged": " {capacity}%",
+        "format-alt": "{icon} {time}",
+        "format-icons": ["", "", "", "", ""],
+        "class": {
+            "critical": "battery-critical",
+            "warning": "battery-warning",
+            "good": "battery-good"
+        }
+    },
+
+    "idle_inhibitor": {
+        "format": "{icon}",
+        "format-icons": {
+            "activated": "",
+            "deactivated": ""
+        }
+    },
+
+    "keyboard-state": {
+        "numlock": true,
+        "capslock": true,
+        "format": "{name} {icon}",
+        "format-icons": {
+            "locked": "",
+            "unlocked": ""
+        }
+    },
+
+    "custom/light": {
+        "format":"{icon} {percent}%",
+        "tooltip": false,
+        "interval": 100,
+        "on-scroll-up": "light -A 10",
+        "on-scroll-down": "light -U 10",
+        "exec": "light",
+        "format-icons": ["", "", "", "", "", "", "", "", ""]
+    },
+
+    "backlight": {
+        // "device": "acpi_video1",
+        "format": " {icon} {percent}%",
+        "tooltip": false,
+        "on-scroll-up": "light -A 10",
+        "on-scroll-down": "light -U 10",
+        "format-icons": ["", "", "", "", "", "", "", "", ""]
+    },
+
+    "temperature": {
+        // "thermal-zone": 2,
+        // "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input",
+        "critical-threshold": 80,
+        // "format-critical": "{temperatureC}°C {icon}",
+        "format": "{temperatureC}°C {icon}",
+        "format-icons": ["", "", ""]
+    },
+    
+   // "custom/clock": {
+    //     // "exec": "date +' %r   %d/%m/%y'",
+    //     "format": "{}",
+    //     // "tooltip": true,
+    //     // "tooltip-format": "<big>{:%A, %d %B %Y}</big>\n<tt><small>{calendar}</small></tt>",
+    //     "return-type": "json",
+    //     // "exec": "echo '{ \"text\": \" '$(date +'%I:%M %p')'   '$(date +'%d/%m/%Y')'\", \"tooltip\": \"<tt>'$(cal -3 | sed 's/\"/\\\\\"/g')'</tt>\" }'",
+    //     // "exec": "echo '{ \"text\": \" '$(date +'%r')'   '$(date +'%d/%m/%y')'\", \"tooltip\": \"'$(cal)'\" }'",
+    //     "exec": "echo '{ \"text\": \" '$(date +'%r')'   '$(date +'%d/%m/%y')'\", \"tooltip\": \"'$(cal | tail -n +2 | sed \"s/\b$today\b/[$today]/g\")'\" }'",
+    //     // "exec": "~/.config/waybar/scripts/pretty-calendar.sh",
+    //     // "tooltip-format": "{cal}",
+    //     "interval": 1,
+    //     "on-click": "cal"
+    // },
+
+    "clock": {
+        // "format": "{:%H:%M}  ",
+        "format": " {:%r    %d/%m/%y}  ",
+        // "format": " {:%r} ",
+        "format-alt": "{:%A, %B %d, %Y (%R)}  ",
+        "tooltip-format": "<tt><small>{calendar}</small></tt>",
+        "calendar": {
+                    "mode"          : "year",
+                    "mode-mon-col"  : 3,
+                    "weeks-pos"     : "right",
+                    "on-scroll"     : 1,
+                    "format": {
+                              "months":     "<span color='#ffead3'><b>{}</b></span>",
+                              "days":       "<span color='#ecc6d9'><b>{}</b></span>",
+                              "weeks":      "<span color='#99ffdd'><b>W{}</b></span>",
+                              "weekdays":   "<span color='#ffcc66'><b>{}</b></span>",
+                              "today":      "<span color='#ff6699'><b><u>{}</u></b></span>"
+                              }
+                    },
+        "actions":  {
+                    "on-click-right": "mode",
+                    "on-scroll-up": "tz_up",
+                    "on-scroll-down": "tz_down",
+                    "on-scroll-up": "shift_up",
+                    "on-scroll-down": "shift_down"
+                    }
+    },
+
+    "network": {
+        // "interface": "wlp2*", // (Optional) To force the use of this interface
+        "format-wifi": "  {essid} ({signalStrength}%)",
+        "format-ethernet": " {ipaddr}/{cidr}",
+        "tooltip-format": " {ifname} via {gwaddr}",
+        "format-linked": " {ifname} (No IP)",
+        "format-disconnected": "⚠ Disconnected",
+        "format-alt": "{ifname}: {ipaddr}/{cidr}"
+    },
+
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "tooltip": false,
+        "format-muted": " Muted",
+        "on-click": "pamixer -t",
+        "on-click-right": "kitty pulsemixer",
+        "on-scroll-up": "pamixer -i 5",
+        "on-scroll-down": "pamixer -d 5",
+        "scroll-step": 5,
+        "format-icons": {
+            "headphone": "",
+            "hands-free": "",
+            "headset": "",
+            "phone": "",
+            "portable": "",
+            "car": "",
+            "default": ["", "", ""]
+        }
+    },
+
+    "pulseaudio#microphone": {
+        "format": "{format_source}",
+        "tooltip": false,
+        "format-source": " {volume}%",
+        "format-source-muted": " Muted",
+        "on-click-right": "kitty pulsemixer",
+        "on-click": "pamixer --default-source -t",
+        "on-scroll-up": "pamixer --default-source -i 5",
+        "on-scroll-down": "pamixer --default-source -d 5",
+        "scroll-step": 5
+    },
+
+    // "network": {
+    //     "interface": "wlan0",
+    //     "format": "{ifname}",
+    //     "format-wifi": "{essid} ({sign/etc/wlogoutalStrength}%) ",
+    //     "format-ethernet": "{ifname} ",
+    //     "format-disconnected": "", //An empty format will hide the module.
+    //     "format-disconnected": "",
+    //     "tooltip-format": "{ifname}",
+    //     "tooltip-format-wifi": "{essid} ({signalStrength}%) ",
+    //     "tooltip-format-ethernet": "{ifname} ",
+    //     "tooltip-format-disconnected": "Disconnected",
+    //     "max-length": 50
+    // },
+
+   "custom/powermenu": {
+        // "exec": ",
+        // "tooltip-format": "",
+        // "interval": 3,
+        "tooltip":true,
+        "on-click": "wlogout --protocol layer-shell -b 5 -T 400 -B 400",
+        "format": "🔴"
+    },
+
+    "custom/lock": {
+        "on-click": "swaylock",
+        "tooltip":true,
+        "format": "🔒"
+    },
+
+    "custom/weather": {
+        "exec": "curl -s 'wttr.in?format=1'",
+        "interval": 600,
+        "format": " {}"
+    }
+
+
+}
