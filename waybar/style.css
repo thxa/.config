@@ -183,7 +183,9 @@ tooltip {
 #custom-powermenu {
     border-radius: 0px 10px 10px 0px;
     border-right: 0px;
-    margin-left: 0px;
+    margin: 0px;
+    font-size: 20px;
+
 }
 
 #custom-lock {

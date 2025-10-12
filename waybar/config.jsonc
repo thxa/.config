@@ -313,7 +313,7 @@
         // "interval": 3,
         "tooltip":true,
         "on-click": "wlogout --protocol layer-shell -b 5 -T 400 -B 400",
-        "format": "🔴"
+        "format": "󰣇"
     },
 
     "custom/lock": {
