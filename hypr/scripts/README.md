@@ -1,0 +1,147 @@
+# Create macOS on qemu
+
+
+```bash
+sudo pacman -S edk2-ovmf
+```
+
+
+```bash
+mkdir -p ~/Desktop/VMs/macOS
+cd ~/Desktop/VMs/macOS
+git clone --depth 1 https://github.com/kholia/OSX-KVM.git
+cp OSX-KVM/OpenCore/OpenCore.qcow2 .
+```
+
+```bash
+cd OSX-KVM
+./fetch-macOS-v2.py
+```
+
+```bash 
+# Convert the downloaded recovery to qcow2
+qemu-img convert BaseSystem.dmg -O qcow2 BaseSystem.qcow2
+
+# Copy to your VMs directory
+cp BaseSystem.qcow2 ~/Desktop/VMs/macOS/
+cp OpenCore/OpenCore.qcow2 ~/Desktop/VMs/macOS/
+```
+
+```bash
+# Create your main macOS disk
+cd ~/Desktop/VMs/macOS
+qemu-img create -f qcow2 macOS_Sonoma.qcow2 128G
+```
+
+```bash 
+
+
+
+# Swap back to use the installed system
+cd ~/Desktop/VMs/macOS
+mv macOS_Sonoma.qcow2 BaseSystem.qcow2.backup
+mv macOS_Install.qcow2 macOS_Sonoma.qcow2
+
+# Now run your script normally
+```
+
+
+On macOS
+```bash 
+# In macOS Terminal:
+sudo defaults write /Library/Preferences/com.apple.windowserver DisplayResolutionEnabled -bool true
+```
+
+
+```bash
+#!/usr/bin/env bash
+
+# Special thanks to:
+# https://github.com/Leoyzen/KVM-Opencore
+# https://github.com/thenickdude/KVM-Opencore/
+# https://github.com/qemu/qemu/blob/master/docs/usb2.txt
+#
+# qemu-img create -f qcow2 mac_hdd_ng.img 128G
+#
+# echo 1 > /sys/module/kvm/parameters/ignore_msrs (this is required)
+
+# Convert the downloaded recovery to qcow2
+# qemu-img convert BaseSystem.dmg -O qcow2 BaseSystem.qcow2
+## Copy to your VMs directory
+# cp BaseSystem.qcow2 ~/Desktop/VMs/macOS/
+# cp OpenCore/OpenCore.qcow2 ~/Desktop/VMs/macOS/
+
+# Create your main macOS disk
+# cd ~/Desktop/VMs/macOS
+# qemu-img create -f qcow2 macOS_Sonoma.qcow2 128G
+
+# Temporarily rename for installation
+# mv macOS_Sonoma.qcow2 macOS_Install.qcow2
+# mv BaseSystem.qcow2 macOS_Sonoma.qcow2
+
+# Run your script and select macOS_Sonoma.qcow2
+
+
+
+###############################################################################
+# NOTE: Tweak the "MY_OPTIONS" line in case you are having booting problems!
+###############################################################################
+#
+# Change `Penryn` to `Haswell-noTSX` in OpenCore-Boot.sh file for macOS Sonoma!
+#
+###############################################################################
+
+
+MY_OPTIONS="+ssse3,+sse4.2,+popcnt,+avx,+aes,+xsave,+xsaveopt,check"
+
+# This script works for Big Sur, Catalina, Mojave, and High Sierra. Tested with
+# macOS 10.15.6, macOS 10.14.6, and macOS 10.13.6.
+
+ALLOCATED_RAM="8128" # MiB
+CPU_SOCKETS="1"
+CPU_CORES="4"
+CPU_THREADS="4"
+
+REPO_PATH="."
+OVMF_DIR="."
+
+# shellcheck disable=SC2054
+args=(
+  -enable-kvm -m "$ALLOCATED_RAM" -cpu Haswell-noTSX,kvm=on,vendor=GenuineIntel,+invtsc,vmware-cpuid-freq=on,$MY_OPTIONS
+  -machine q35
+  -device qemu-xhci,id=xhci
+  -device usb-kbd,bus=xhci.0 -device usb-tablet,bus=xhci.0
+  -smp "$CPU_THREADS",cores="$CPU_CORES",sockets="$CPU_SOCKETS"
+  -device usb-ehci,id=ehci
+  # -device usb-kbd,bus=ehci.0
+  # -device usb-mouse,bus=ehci.0
+  # -device nec-usb-xhci,id=xhci
+  # -global nec-usb-xhci.msi=off
+  # -global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=off
+  # -device usb-host,vendorid=0x8086,productid=0x0808  # 2 USD USB Sound Card
+  # -device usb-host,vendorid=0x1b3f,productid=0x2008  # Another 2 USD USB Sound Card
+  -device isa-applesmc,osk="ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc"
+  -drive if=pflash,format=raw,readonly=on,file="/home/t/Desktop/VMs/macOS/OVMF_CODE.fd"
+  -drive if=pflash,format=raw,file="/home/t/Desktop/VMs/macOS/OVMF_VARS.fd"
+  -smbios type=2
+  -device ich9-intel-hda -device hda-duplex
+  -device ich9-ahci,id=sata
+  -drive id=OpenCoreBoot,if=none,snapshot=on,format=qcow2,file="/home/t/Desktop/VMs/macOS/OpenCore.qcow2"
+  -device ide-hd,bus=sata.2,drive=OpenCoreBoot
+  # -device ide-hd,bus=sata.3,drive=InstallMedia
+  # -drive id=InstallMedia,if=none,file="../macOS_Sonoma.qcow2",format=qcow2
+  # -drive id=MacHDD,if=none,file="../macOS_Install.qcow2",format=qcow2
+  # -device ide-hd,bus=sata.4,drive=MacHDD
+  -drive id=MacHDD,if=none,file="/home/t/Desktop/VMs/macOS/macOS_Sonoma.qcow2",format=qcow2
+  -device ide-hd,bus=sata.4,drive=MacHDD
+  # -netdev tap,id=net0,ifname=tap0,script=no,downscript=no -device virtio-net-pci,netdev=net0,id=net0,mac=52:54:00:c9:18:27
+  -netdev user,id=net0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=net0,id=net0,mac=52:54:00:c9:18:27
+  # -netdev user,id=net0 -device vmxnet3,netdev=net0,id=net0,mac=52:54:00:c9:18:27  # Note: Use this line for High Sierra
+  -monitor stdio
+  -device vmware-svga
+  # -spice port=5900,addr=127.0.0.1,disable-ticketing=on
+)
+qemu-system-x86_64 "${args[@]}"
+```
+
+
