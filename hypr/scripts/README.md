@@ -145,3 +145,42 @@ qemu-system-x86_64 "${args[@]}"
 ```
 
 
+## QEMU/KVM
+For QEMU, it's more complex:
+
+Use SPICE (recommended):
+```bash
+bash   -vga qxl -spice port=5930,disable-ticketing
+```
+
+Install `spice-vdagent` in the guest
+Use a SPICE client viewer
+
+
+## Alternative - VNC with clipboard sharing:
+Use a VNC viewer that supports clipboard sync like TigerVNC
+UTM (QEMU-based for Mac)
+
+UTM usually has clipboard sharing built-in
+Enable it in VM Settings → Sharing → Clipboard Sharing
+
+Which virtualization platform are you using? I can give you more specific instructions.
+
+
+
+## Pre-requisite for Bridged Mode
+Since "Bridged Mode" interacts with your system's network interface, QEMU needs permission to access virbr0.
+If you select "Bridged" and the VM fails to start with an error like "failed to launch bridge helper", you need to create/edit this file on your Host (Arch Linux):
+
+Create the config file:
+```sh
+sudo mkdir -p /etc/qemu
+echo "allow virbr0" | sudo tee /etc/qemu/bridge.conf
+```
+Ensure correct permissions: The bridge helper binary needs setuid permissions (usually set by default on Arch, but good to check):
+
+```sh 
+ls -l /usr/lib/qemu/qemu-bridge-helper
+# Should look like: -rwsr-xr-x (the 's' is important)
+```
+Once this is done, select "Bridged (virbr0)" in your new script menu. Your Windows VM will get an IP like 192.168.122.x, and you will be able to ping it from your Linux terminal.

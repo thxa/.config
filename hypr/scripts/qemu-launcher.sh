@@ -17,9 +17,7 @@ VHOST_BASE="/tmp/vhost"
 SERIAL_BASE="/tmp/qemu-serial"
 
 # Network configuration
-NETWORK_SOCKET="/tmp/qemu-vlan.sock"
 MULTICAST_ADDR="230.0.0.1:1234"
-VLAN_ID="0"
 
 list_running_vms() {
     for sock in ${SPICE_BASE}_*.sock; do
@@ -31,7 +29,7 @@ list_running_vms() {
 }
 
 # Check if any QEMU process is already running
-RUNNING_QEMU=$(pgrep -f qemu-system-x86_64)
+RUNNING_QEMU=$(pgrep -f qemu-system)
 
 if [ -n "$RUNNING_QEMU" ]; then
     mapfile -t RUNNING_VMS < <(list_running_vms)
@@ -50,11 +48,9 @@ if [ -n "$RUNNING_QEMU" ]; then
                 # Continue to start new VM
                 ;;
             "Shutdown All VMs")
-                # Kill all running QEMU and virtiofsd processes
-                pkill -f qemu-system-x86_64
+                pkill -f qemu-system
                 pkill -f "$VIRTIOFSD"
                 rm -f ${SPICE_BASE}_*.sock ${VHOST_BASE}_*.sock
-                rm -f "$NETWORK_SOCKET"
                 if [ -e /tmp/qemu-hub.lock ]; then
                     rm -f /tmp/qemu-hub.lock
                 fi
@@ -81,36 +77,47 @@ if [ -n "$RUNNING_QEMU" ]; then
     fi
 fi
 
+# --- Select Architecture ---
+ARCH_SELECT=$(echo -e "64-bit\n32-bit" | rofi -dmenu -p "Select Architecture")
+if [ -z "$ARCH_SELECT" ]; then
+    exit 0
+fi
+
+if [[ "$ARCH_SELECT" == "32-bit" ]]; then
+    QEMU_BIN="qemu-system-i386"
+else
+    QEMU_BIN="qemu-system-x86_64"
+fi
+# ---------------------------
+
 # Ask user to select VM disk image
-VM=$(find "$VM_DIR" -type f \( -name "*.raw" -o -name "*.qcow2" \) | rofi -dmenu -p "Select VM")
+VM=$(find "$VM_DIR" -type f \( -name "*.raw" -o -name "*.qcow2" \) | rofi -dmenu -p "Select VM ($ARCH_SELECT)")
 [ -z "$VM" ] && exit 0
 
-# Extract VM name from filename (without path and extension)
+# Extract VM name
 VM_NAME=$(basename "$VM" | sed 's/\.[^.]*$//')
 
-# Detect if this is a macOS VM
+# Detect macOS
 IS_MACOS=false
 if [[ "$VM" == *"macOS"* ]] || [[ "$VM" == *"mac_"* ]] || [[ "$VM_NAME" == *"macOS"* ]]; then
     CONFIRM_MACOS=$(echo -e "Yes - macOS VM\nNo - Regular VM" | rofi -dmenu -p "Is this a macOS VM?")
     if [[ "$CONFIRM_MACOS" == *"Yes"* ]]; then
         IS_MACOS=true
+        QEMU_BIN="qemu-system-x86_64"
     fi
 fi
 
-# Ask user for RAM amount
+# RAM Selection
 RAM=$(echo -e "2G\n4G\n6G\n8G\n12G\n16G\nCustom" | rofi -dmenu -p "RAM Amount")
 if [[ "$RAM" == "Custom" ]]; then
     RAM=$(rofi -dmenu -p "Enter RAM (e.g., 3G, 5120M)" <<< "")
     [ -z "$RAM" ] && RAM="4G"
 fi
-
-# Convert RAM to MiB for macOS (if needed)
 RAM_MIB=$(echo "$RAM" | sed 's/G/*1024/;s/M//' | bc 2>/dev/null || echo "4096")
 
-# Generate unique ID for this VM
+# Unique IDs
 VM_ID="$VM_NAME"
 SPICE_SOCKET="${SPICE_BASE}_${VM_ID}.sock"
-VHOST_SOCKET="${VHOST_BASE}_${VM_ID}.sock"
 
 if [ "$IS_MACOS" = true ]; then
     echo "Starting macOS VM: $VM_NAME"
@@ -180,15 +187,13 @@ if [ "$IS_MACOS" = true ]; then
     echo "Starting macOS VM $VM_ID..."
     echo "macOS Network MAC: 52:54:00:c9:18:27"
     echo "SSH available on: localhost:2222"
-    
 else
     # Regular VM (Linux/Windows)
-    echo "Starting regular VM: $VM_NAME"
     
-    # Ask user to optionally select an ISO file
+    # ISO Selection
     ISO=$(find "$VM_DIR" -type f -name "*.iso" | rofi -dmenu -p "Select ISO (optional, press ESC to skip)")
     
-    # Ask if user wants to use e1000 (for Windows without VirtIO drivers)
+    # Network Adapter
     USE_E1000=$(echo -e "VirtIO (faster, needs drivers)\ne1000 (slower, built-in Windows support)" | rofi -dmenu -p "Network Adapter Type")
     if [[ "$USE_E1000" == *"e1000"* ]]; then
         NET_DEVICE="e1000"
@@ -196,34 +201,42 @@ else
         NET_DEVICE="virtio-net-pci"
     fi
     
-    # Generate unique MAC address for LAN interface
+    # MAC Generation
     MAC_SUFFIX=$(echo -n "$VM_NAME" | md5sum | cut -c1-2)
-    LAN_MAC="52:54:00:aa:bb:${MAC_SUFFIX}"
     NAT_MAC="52:54:00:aa:cc:${MAC_SUFFIX}"
     
-    # Ask user network type
-    NETWORK_TYPE=$(echo -e "Multicast (simple)\nSocket Hub (reliable)\nVLAN (legacy)" | rofi -dmenu -p "Network Type")
+    # --- UPDATED NETWORK TYPE ---
+    # Added "Bridged" option to fix the Host<->Guest connectivity issue
+    NETWORK_TYPE=$(echo -e "Bridged (virbr0 - Enables Ping/Host Access)\nInternet Only (User Mode - NAT)\nSocket Hub (Connect VMs)\nMulticast" | rofi -dmenu -p "Network Type")
     
     sleep 1
     
     case "$NETWORK_TYPE" in
+        "Bridged"*)
+            # Bridges to virbr0 (allows 192.168.122.x IP)
+            # REQUIRES: /etc/qemu/bridge.conf to allow virbr0
+            NET_STRING="-netdev bridge,id=net0,br=virbr0 -device $NET_DEVICE,netdev=net0,mac=$NAT_MAC"
+            echo "Attempting to bridge to virbr0..."
+            ;;
         "Socket Hub"*)
             if [ ! -e /tmp/qemu-hub.lock ]; then
                 touch /tmp/qemu-hub.lock
-                NETWORK_CONFIG="-netdev socket,id=lan,listen=:5555"
+                NET_STRING="-netdev socket,id=lan,listen=:5555 -device $NET_DEVICE,netdev=lan,mac=$NAT_MAC"
             else
-                NETWORK_CONFIG="-netdev socket,id=lan,connect=127.0.0.1:5555"
+                NET_STRING="-netdev socket,id=lan,connect=127.0.0.1:5555 -device $NET_DEVICE,netdev=lan,mac=$NAT_MAC"
             fi
             ;;
-        "VLAN"*)
-            NETWORK_CONFIG="-netdev socket,id=lan,mcast=${MULTICAST_ADDR},localaddr=127.0.0.1"
+        "Multicast"*)
+            NET_STRING="-netdev socket,id=lan,mcast=${MULTICAST_ADDR} -device $NET_DEVICE,netdev=lan,mac=$NAT_MAC"
             ;;
         *)
-            NETWORK_CONFIG="-netdev socket,id=lan,mcast=${MULTICAST_ADDR}"
+            # Default: User Mode (SLIRP) - Good for internet, bad for Host<->Guest
+            NET_STRING="-netdev user,id=natnet,hostfwd=tcp::2222-:22,hostfwd=tcp::3389-:3389 -device $NET_DEVICE,netdev=natnet,mac=$NAT_MAC"
             ;;
     esac
     
-    QEMU_CMD="qemu-system-x86_64 \
+    # Command Construction
+    QEMU_CMD="$QEMU_BIN \
       -enable-kvm \
       -m $RAM \
       -cpu host \
@@ -233,28 +246,27 @@ else
       -device qxl-vga \
       -spice unix=on,addr=$SPICE_SOCKET,disable-ticketing=on \
       -device virtio-serial-pci \
-      $NETWORK_CONFIG \
-      -device $NET_DEVICE,netdev=lan,mac=$LAN_MAC \
-      -netdev user,id=natnet \
-      -device $NET_DEVICE,netdev=natnet,mac=$NAT_MAC \
+      $NET_STRING \
       -chardev spicevmc,id=vdagent,name=vdagent \
       -device virtserialport,chardev=vdagent,name=com.redhat.spice.0 \
       -name \"VM_${VM_ID}\""
     
-    # Add ISO if user selected one
     if [ -n "$ISO" ]; then
         QEMU_CMD="$QEMU_CMD -drive file=\"$ISO\",media=cdrom"
     fi
     
-    # Run QEMU
     eval "$QEMU_CMD &"
     
     echo "Starting VM $VM_ID..."
-    echo "LAN MAC: $LAN_MAC"
-    echo "NAT MAC: $NAT_MAC"
+    if [[ "$NETWORK_TYPE" == *"Internet Only"* ]]; then
+        echo "RDP Available: localhost:3389"
+        echo "SSH Available: localhost:2222"
+    else
+        echo "Network: Bridged/Socket. Check IP inside VM."
+    fi
 fi
 
-# Wait until SPICE socket is ready
+# Wait for SPICE
 while [ ! -S "$SPICE_SOCKET" ]; do
   sleep 0.2
 done
